@@ -1,0 +1,20 @@
+{
+  "name": "fry-vector",
+  "version": "0.1.0",
+  "description": "A C++ vector database engine",
+  "dependencies": [
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.3"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.14.1"
+    },
+    {
+      "name": "catch2",
+      "version>=": "3.7.1"
+    }
+  ],
+  "overrides": []
+}

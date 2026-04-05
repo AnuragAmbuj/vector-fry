@@ -1,0 +1,86 @@
+# ── fry-vector clang-format ──────────────────────────────────────────────────
+# Targets: C++11  |  clang-format ≥ 14
+# Run:     clang-format -i src/**/*.cpp include/**/*.h tests/**/*.cpp main.cpp
+# ─────────────────────────────────────────────────────────────────────────────
+
+Language: Cpp
+Standard: c++11
+BasedOnStyle: LLVM
+
+# ── Indentation ──────────────────────────────────────────────────────────────
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+IndentCaseLabels: false
+IndentPPDirectives: None
+NamespaceIndentation: None          # namespace fry { … } — body not indented
+
+# ── Column & wrapping ───────────────────────────────────────────────────────
+ColumnLimit: 100
+AlwaysBreakTemplateDeclarations: Yes
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+
+# ── Braces ───────────────────────────────────────────────────────────────────
+BreakBeforeBraces: Attach           # K&R / "Java" style: `if (...) {`
+Cpp11BracedListStyle: true
+
+# ── Alignment ────────────────────────────────────────────────────────────────
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+
+# ── Spaces ───────────────────────────────────────────────────────────────────
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# ── Includes ─────────────────────────────────────────────────────────────────
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # 1. Main header (e.g. "fry/vector_store.h" for vector_store.cpp)
+  - Regex:    '^"fry/'
+    Priority: 1
+  # 2. Third-party headers
+  - Regex:    '^<(catch2|nlohmann|spdlog|fmt)/'
+    Priority: 2
+  # 3. Standard library
+  - Regex:    '^<'
+    Priority: 3
+  # 4. Anything else (local includes)
+  - Regex:    '.*'
+    Priority: 4
+
+# ── Penalties (tune line-break heuristics) ───────────────────────────────────
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 200
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+PointerAlignment: Left              # float* ptr
+DerivePointerAlignment: false
+ReflowComments: true
+BinPackArguments: true
+BinPackParameters: true
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+FixNamespaceComments: true          # adds/fixes `} // namespace fry`

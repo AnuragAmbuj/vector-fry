@@ -1,0 +1,102 @@
+# ── fry-vector clang-tidy ────────────────────────────────────────────────────
+# Targets: C++11  |  clang-tidy ≥ 14
+# Run:     clang-tidy -p build/debug src/*.cpp main.cpp
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# NOTE: This project targets C++11.  Several modernize-* checks that suggest
+# C++14 / C++17 / C++20 features are explicitly disabled below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+
+  # ── Disable checks that require C++14 or later ────────────────────────────
+  -modernize-make-unique,
+  -modernize-use-transparent-functors,
+  -modernize-type-traits,
+  -modernize-use-std-print,
+  -modernize-use-nodiscard,
+  -modernize-return-braced-init-list,
+  -modernize-unary-static-assert,
+
+  # ── Disable overly noisy / false-positive-prone checks ────────────────────
+  -bugprone-easily-swappable-parameters,
+  -cert-err58-cpp,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -misc-non-private-member-variables-in-classes,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+
+  # ── Catch2 macros generate these warnings ─────────────────────────────────
+  -cert-err33-c,
+  -cppcoreguidelines-avoid-do-while,
+  -misc-use-anonymous-namespace,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+
+# ── Check-specific options ──────────────────────────────────────────────────
+CheckOptions:
+  # Naming conventions — match existing codebase style
+  - key:   readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key:   readability-identifier-naming.StructCase
+    value: CamelCase
+  - key:   readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key:   readability-identifier-naming.MethodCase
+    value: lower_case
+  - key:   readability-identifier-naming.VariableCase
+    value: lower_case
+  - key:   readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key:   readability-identifier-naming.MemberCase
+    value: lower_case
+  - key:   readability-identifier-naming.MemberSuffix
+    value: '_'
+  - key:   readability-identifier-naming.ConstantCase
+    value: lower_case
+  - key:   readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key:   readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  - key:   readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key:   readability-identifier-naming.EnumConstantPrefix
+    value: k
+  - key:   readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key:   readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+
+  # Performance tuning
+  - key:   performance-unnecessary-value-param.AllowedTypes
+    value: ''
+  - key:   performance-move-const-arg.CheckTriviallyCopyableMove
+    value: 'true'
+
+  # Misc
+  - key:   readability-function-cognitive-complexity.Threshold
+    value: '25'
+  - key:   readability-function-size.LineThreshold
+    value: '80'
+  - key:   readability-function-size.StatementThreshold
+    value: '60'
+  - key:   readability-function-size.ParameterThreshold
+    value: '6'
+  - key:   misc-include-cleaner.IgnoreHeaders
+    value: 'catch2/.*'
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: '^.*/include/fry/.*'
+
+FormatStyle: file

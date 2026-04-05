@@ -1,0 +1,30 @@
+# Build directories
+build/
+cmake-build-*/
+
+# vcpkg installed tree (auto-restored by manifest mode)
+vcpkg_installed/
+
+# CMake user presets (machine-local, contains hardcoded paths)
+CMakeUserPresets.json
+
+# CLion IDE files (optional: keep .idea/ but ignore generated/personal files)
+.idea/workspace.xml
+.idea/shelf/
+
+# Compiler output
+*.o
+*.a
+*.dylib
+*.so
+*.out
+
+# Compile commands symlink (regenerated per preset)
+compile_commands.json
+
+# No Claude or Agent settings should be pushed, that shit's personal to you.
+.claude
+*CLAUDE*.md
+*AGENT*.md
+*claude*.md
+*agent*.md
