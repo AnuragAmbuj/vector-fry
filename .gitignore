@@ -11,6 +11,7 @@ CMakeUserPresets.json
 # CLion IDE files (optional: keep .idea/ but ignore generated/personal files)
 .idea/workspace.xml
 .idea/shelf/
+.idea
 
 # Compiler output
 *.o
