@@ -24,7 +24,6 @@ namespace fry {
                             std::size_t max_links,
                             std::size_t ef_construction)
         : store_(dim)
-          , nodes_()
           , M_(max_links)
           , ef_construction_(ef_construction)
           , mL_(1.0 / std::log(static_cast<double>(max_links)))
@@ -39,9 +38,11 @@ namespace fry {
 
     // Returns dist(node `id`, query). Looks up the node's floats in the slab.
     // Vector id lives at: store_.data() + id * store_.dim()
+    // For Cosine and InnerProduct (similarity metrics), negate so "smaller is better" for HNSW
     template<Metric M>
     auto HNSWIndex<M>::node_dist(VectorId id, const float *query) const -> float {
-        return dispatch<M>(query, store_.data() + id * store_.dim(), store_.dim());
+        float raw_distance = dispatch<M>(query, store_.data() + id * store_.dim(), store_.dim());
+        return as_hnsw_distance<M>(raw_distance);
     }
 
 
@@ -64,7 +65,7 @@ namespace fry {
     auto HNSWIndex<M>::select_neighbors(
         std::priority_queue<std::pair<float, VectorId> > candidates,
         std::size_t num_neighbors
-    ) -> std::vector<VectorId> {
+    ) const -> std::vector<VectorId> {
         std::vector<std::pair<float, VectorId> > all;
         while (!candidates.empty()) {
             all.push_back(candidates.top());
@@ -118,34 +119,70 @@ namespace fry {
     //   nodes_[nb].neighbors[lc] = select_neighbors(that heap, M_lc);
     template<Metric M>
     auto HNSWIndex<M>::insert(const Vector<float> &vec) -> Result<VectorId> {
-        // A — dimension guard
-        // TODO
+        // A — guard: dimension check
+        if (vec.dim() != store_.dim()) {
+            return make_error<VectorId>(
+                Error::dimension_mismatch(vec.dim(), store_.dim()));
+        }
 
-        // B — store
-        // TODO: auto id_result = store_.insert(vec); if (!id_result) return id_result;
-        //       VectorId new_id = *id_result;
+        // B — store the vector
+        auto id_result = store_.insert(vec);
+        if (!id_result) {
+            return id_result;
+        }
 
-        // C — level
-        // TODO: int new_level = assign_level();
+        // C — assign level and create node
+        VectorId const new_id = *id_result;
+        int const new_level = assign_level();
+        nodes_.emplace_back(new_level);
 
-        // D — node
-        // TODO: nodes_.emplace_back(new_level);
-
-        // E — first node
-        // TODO: if (entry_point_ == kInvalidId) { entry_point_ = new_id; max_level_ = new_level; return make_ok(new_id); }
+        // D — first node case: set as entry point and return
+        if (entry_point_ == kInvalidId) {
+            entry_point_ = new_id;
+            max_level_ = new_level;
+            return make_ok(new_id);
+        }
 
         // F — descend upper layers
-        // TODO
+        std::vector<std::pair<float, VectorId>> ep = {
+            { node_dist(entry_point_, vec.data()), entry_point_ }
+        };
+        for (int lc = max_level_; lc > new_level; --lc) {
+            auto result = search_layer(ep, vec.data(), 1, lc);
+            ep = { result.top() };
+        }
 
         // G — build edges per layer
-        // TODO
+        for (int lc = std::min(new_level, max_level_); lc >= 0; --lc) {
+            auto candidates = search_layer(ep, vec.data(), ef_construction_, lc);
+            std::size_t const M_lc = (lc == 0) ? 2 * M_ : M_;
+            auto nbs = select_neighbors(candidates, M_lc);
+            nodes_[new_id].neighbors[static_cast<std::size_t>(lc)] = nbs;
+            for (VectorId const nb : nbs) {
+                nodes_[nb].neighbors[static_cast<std::size_t>(lc)].push_back(new_id);
+                if (nodes_[nb].neighbors[static_cast<std::size_t>(lc)].size() > M_lc) {
+                    MaxHeap nb_cands;
+                    for (VectorId const existing : nodes_[nb].neighbors[static_cast<std::size_t>(lc)]) {
+                        float const d = node_dist(existing, store_.data() + nb * store_.dim());
+                        nb_cands.emplace(d, existing);
+                    }
+                    nodes_[nb].neighbors[static_cast<std::size_t>(lc)] = select_neighbors(nb_cands, M_lc);
+                }
+            }
+            ep.clear();
+            for (VectorId const nb : nbs) {
+                ep.emplace_back(node_dist(nb, vec.data()), nb);
+            }
+        }
 
-        // H — update entry point
-        // TODO
+        // H — update entry point if new_level is higher
+        if (new_level > max_level_) {
+            entry_point_ = new_id;
+            max_level_ = new_level;
+        }
 
-        // I — return
-        (void) vec;
-        return make_error<VectorId>(Error::invalid_argument("insert: not yet implemented"));
+        // I — return the new node ID
+        return make_ok(new_id);
     }
 
 
@@ -163,35 +200,56 @@ namespace fry {
                              std::size_t k,
                              std::size_t ef_search) const -> Result<std::vector<VectorId> > {
         // A — guards
-        // TODO
-        if (k == 0) {
-            throw std::invalid_argument("query: k must be greater than zero");
+        // Check 1: Store is not empty
+        if (store_.size() == 0) {
+            return make_error<std::vector<VectorId> >(
+                Error::store_empty());
         }
 
-        auto actual_k = std::min(k,store_.size());
+        // Check 2: k is valid
+        if (k == 0) {
+            return make_error<std::vector<VectorId> >(
+                Error::invalid_argument("query: k must be greater than zero"));
+        }
+
+        // Check 3: Dimension matches
+        if (vec.dim() != store_.dim()) {
+            return make_error<std::vector<VectorId> >(
+                Error::dimension_mismatch(vec.dim(), store_.dim()));
+        }
+
+        auto actual_k = std::min(k, store_.size());
         auto actual_ef = std::max(ef_search, actual_k);
 
-        if (actual_ef < actual_k) {
-            throw std::invalid_argument("query: dimension mismatch");
+        // B — seed: create entry point at max_level_
+        std::vector<std::pair<float, VectorId>> ep = {
+            { node_dist(entry_point_, vec.data()), entry_point_ }
+        };
+
+        // C — descend: from max_level_ down to layer 1 with ef=1
+        for (int lc = max_level_; lc > 0; --lc) {
+            auto result = search_layer(ep, vec.data(), 1, lc);
+            ep = { result.top() };
         }
 
-        // B — seed
-        // TODO
+        // D — beam search at layer 0 with actual_ef candidates
+        auto found = search_layer(ep, vec.data(), actual_ef, 0);
 
-        // C — descend
-        // TODO
+        // E — extract ALL from max-heap (worst-first), reverse to get best-first, take top k
+        std::vector<VectorId> results;
+        while (!found.empty()) {
+            results.push_back(found.top().second);
+            found.pop();
+        }
+        // Now results is in worst-first order (largest distance first)
+        // Reverse to get best-first order (smallest distance first)
+        std::reverse(results.begin(), results.end());
+        // Keep only the first k (the best k)
+        if (results.size() > actual_k) {
+            results.resize(actual_k);
+        }
 
-        // D — layer 0 search
-        // TODO
-
-        // E — extract + reverse
-        // TODO
-
-        (void) vec;
-        (void) k;
-        (void) ef_search;
-        return make_error<std::vector<VectorId> >(
-            Error::invalid_argument("query: not yet implemented"));
+        return make_ok(results);
     }
 
 
@@ -226,8 +284,8 @@ namespace fry {
                 break;
             }
 
-            if (static_cast<int>(nodes_[c_id].neighbors.size()) <= layer) {
-                for (VectorId const nb: nodes_[c_id].neighbors[layer]) {
+            if (static_cast<int>(nodes_[c_id].neighbors.size()) > layer) {
+                for (VectorId const nb: nodes_[c_id].neighbors[static_cast<std::size_t>(layer)]) {
                     if (visited.count(nb) == 0) {
                         visited.insert(nb);
                         float d = node_dist(nb, query);

@@ -172,7 +172,7 @@ public:
 
     // Insert a vector into the index. Returns the assigned VectorId.
     // Error::DimensionMismatch if vec.dim() != this->dim().
-    static auto insert(const Vector<float>& vec) -> Result<VectorId>;
+    auto insert(const Vector<float>& vec) -> Result<VectorId>;
 
     // ── Query ─────────────────────────────────────────────────────────────────
 
@@ -245,10 +245,10 @@ private:
     // Given a max-heap of candidates (size >= M), extract the M closest.
     // The heap is consumed (passed by value intentionally).
     // Returns a vector of the M nearest VectorIds.
-    static auto select_neighbors(
+    auto select_neighbors(
         std::priority_queue<std::pair<float, VectorId>> candidates,
         std::size_t num_neighbors
-    ) -> std::vector<VectorId>;
+    ) const -> std::vector<VectorId>;
 };
 
 } // namespace fry

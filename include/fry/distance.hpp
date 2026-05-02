@@ -60,5 +60,24 @@ namespace fry {
         return inner_product(a, b, dim);
     }
 
+    // Helper: Convert metric value to "smaller is better" convention for HNSW
+    // L2: already smaller-is-better
+    // Cosine: larger-is-better, so negate
+    // InnerProduct: larger-is-better, so negate
+    template<Metric M>
+    inline auto as_hnsw_distance(float metric_value) -> float {
+        return metric_value;  // Default: L2, no negation needed
+    }
+
+    template<>
+    inline auto as_hnsw_distance<Metric::Cosine>(float metric_value) -> float {
+        return -metric_value;  // Cosine: negate so higher similarity = smaller distance
+    }
+
+    template<>
+    inline auto as_hnsw_distance<Metric::InnerProduct>(float metric_value) -> float {
+        return -metric_value;  // InnerProduct: negate so higher dot product = smaller distance
+    }
+
 }
 #endif //FRY_VECTOR_DISTANCE_HPP

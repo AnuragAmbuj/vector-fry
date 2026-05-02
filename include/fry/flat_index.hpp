@@ -48,7 +48,8 @@ namespace fry {
             for (VectorId i = 0; i < store_.size(); ++i) {
                 const float *vec_i = slab + (i * dimension);
                 float dist = dispatch<M>(query_ptr, vec_i, dimension);
-                float heap_val = (M == Metric::Cosine) ? -dist : dist;
+                // For Cosine and InnerProduct (similarity metrics), negate so "smaller is better"
+                float heap_val = (M == Metric::Cosine || M == Metric::InnerProduct) ? -dist : dist;
 
                 if (heap.size() < actual_k) {
                     heap.emplace(heap_val, i);
